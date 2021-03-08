@@ -20,15 +20,20 @@
 #include <zombiereloaded>
 
 // This is for Shop Hlmod.ru
-#define SHOP_HLMOD
+//#define SHOP_HLMOD
 #if defined SHOP_HLMOD
 #include <shop>
 #endif
 
 // Default for Zephyrus Store
-//#define STORE_ZEPHYRUS
+#define STORE_ZEPHYRUS
 #if defined STORE_ZEPHYRUS
 #include <store>
+#endif
+
+//#define LR_RANK
+#if defined LR_RANK
+#include <lvl_ranks>
 #endif
 
 #pragma semicolon 1
@@ -39,10 +44,18 @@ Handle g_hCvarCreditReward;
 Handle g_hCvarEnabled;
 Handle g_hCvarPrefix;
 
+#if defined LR_RANK
+Handle g_hCvarExpReward;
+#endif
+
 int g_iRequireDamage;
 int g_iCreditReward;
 bool g_bEnablePlugin;
 char g_sPrefix[32];
+
+#if defined LR_RANK
+int g_iExpReward;
+#endif
 
 bool g_bTempDisabled;
 
@@ -53,7 +66,7 @@ public Plugin myinfo =
 	name = "[Shop] Defend Credits for Zombie:Reloaded", 
 	author = "Oylsister", 
 	description = "Give Credit to player after do damage to zombie for a while", 
-	version = "1.1", 
+	version = "1.2", 
 	url = "https://github.com/oylsister"
 }
 
@@ -63,6 +76,10 @@ public void OnPluginStart()
 	g_hCvarRequireDamage = CreateConVar("sm_shop_defendcredit_damage", "5000", "How much damage that player need to get the credit", _, true, 0.0, false);
 	g_hCvarCreditReward = CreateConVar("sm_shop_defendcredit_amount", "10", "How much credits player will received after reach specific damage", _, true, 0.0, false);
 	g_hCvarPrefix = CreateConVar("sm_shop_defendcredit_prefix", "{green}[Defend]", "What prefix you would like to use?");
+	
+	#if defined LR_RANK
+	g_hCvarExpReward = CreateConVar("sm_shop_defendcredit_exp", "10", "How many EXP point that player will received after reach specific damage", _, true, 0.0, false);
+	#endif
 	
 	HookEvent("round_end", OnRoundEnd, EventHookMode_PostNoCopy);
 	HookEvent("player_hurt", OnPlayerTakeDamage, EventHookMode_PostNoCopy);
@@ -74,6 +91,10 @@ public void OnPluginStart()
 	HookConVarChange(g_hCvarEnabled, OnConVarChange);
 	HookConVarChange(g_hCvarRequireDamage, OnConVarChange);
 	HookConVarChange(g_hCvarPrefix, OnConVarChange);
+	
+	#if defined LR_RANK
+	HookConVarChange(g_hCvarExpReward, OnConVarChange);
+	#endif
 
 	AutoExecConfig();
 }
@@ -84,6 +105,10 @@ public void OnMapStart()
 	g_bEnablePlugin = view_as<bool>(GetConVarInt(g_hCvarEnabled));
 	g_iRequireDamage = GetConVarInt(g_hCvarRequireDamage);
 	GetConVarString(g_hCvarPrefix, g_sPrefix, sizeof(g_sPrefix));
+	
+	#if defined LR_RANK
+	g_iExpReward = GetConVarInt(g_hCvarExpReward);
+	#endif
 	
 	for(int i = 1; i <= MaxClients; i++)
 	{
@@ -118,6 +143,11 @@ public void OnConVarChange(Handle cvar, const char[] oldValue, const char[] newV
 		
 	else if (cvar == g_hCvarPrefix)
 		GetConVarString(g_hCvarPrefix, g_sPrefix, sizeof(g_sPrefix));
+	
+	#if defined LR_RANK
+	else if (cvar == g_hCvarExpReward)
+		g_iExpReward = GetConVarInt(g_hCvarExpReward);
+	#endif
 }
 
 public void OnRoundStart(Event event, const char[] name, bool dontBroadcast)
@@ -188,8 +218,14 @@ public void OnPlayerTakeDamage(Event event, const char[] name, bool dontBroadcas
 		Store_SetClientCredits(attacker, new_credits);
 		#endif
 		
+		// Addition LR_Rank stuff
+		#if defined LR_RANK
+		LR_ChangeClientValue(attacker, g_iExpReward);
+		CPrintToChat(attacker, "%s{default} You have received {lightgreen}%d {default}exp for damaging zombie!", g_sPrefix, g_iExpReward);
+		#endif
+		
 		// show client a message that you get some credits!
-		CPrintToChat(attacker, "%s{default} You have received {lightgreen}%d for damaging zombie!", g_sPrefix, g_iCreditReward);
+		CPrintToChat(attacker, "%s{default} You have received {lightgreen}%d {default}credits for damaging zombie!", g_sPrefix, g_iCreditReward);
 		
 		// after received credits, roll back and start count damage again.
 		g_iClientDamage[attacker] = 0;
