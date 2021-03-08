@@ -20,13 +20,13 @@
 #include <zombiereloaded>
 
 // This is for Shop Hlmod.ru
-//#define SHOP_HLMOD
+#define SHOP_HLMOD
 #if defined SHOP_HLMOD
 #include <shop>
 #endif
 
 // Default for Zephyrus Store
-#define STORE_ZEPHYRUS
+//#define STORE_ZEPHYRUS
 #if defined STORE_ZEPHYRUS
 #include <store>
 #endif
@@ -74,6 +74,8 @@ public void OnPluginStart()
 	HookConVarChange(g_hCvarEnabled, OnConVarChange);
 	HookConVarChange(g_hCvarRequireDamage, OnConVarChange);
 	HookConVarChange(g_hCvarPrefix, OnConVarChange);
+
+	AutoExecConfig();
 }
 
 public void OnMapStart()
