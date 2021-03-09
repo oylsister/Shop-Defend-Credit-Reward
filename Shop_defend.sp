@@ -24,13 +24,13 @@
 #include <zombiereloaded>
 
 // This is for Shop Hlmod.ru
-//#define SHOP_HLMOD
+#define SHOP_HLMOD
 #if defined SHOP_HLMOD
 #include <shop>
 #endif
 
 // Default for Zephyrus Store
-#define STORE_ZEPHYRUS
+//#define STORE_ZEPHYRUS
 #if defined STORE_ZEPHYRUS
 #include <store>
 #endif
@@ -231,13 +231,12 @@ public void OnRoundStart(Event event, const char[] name, bool dontBroadcast)
 	{
 		if(IsClientInGame(i))
 		{
-			if(g_iClientDamage[i] != 0)
+			g_iClientDamage[i] = 0;
+				
+			if(g_iMaxType == PER_ROUND)
 			{
-				if(g_iMaxType == PER_ROUND)
-				{
-					g_iClientTime[i] = 0;
-					g_iClientCanEarn[i] = true;
-				}
+				g_iClientTime[i] = 0;
+				g_iClientCanEarn[i] = true;
 			}
 			
 			if(g_iMaxType > PER_MAP)
