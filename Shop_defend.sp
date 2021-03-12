@@ -49,6 +49,7 @@ Handle g_hCvarEnabled;
 Handle g_hCvarPrefix;
 Handle g_hCvarMaxType;
 Handle g_hCvarMaximum;
+Handle g_hCvarRequirePlayer;
 
 #if defined LR_RANK
 Handle g_hCvarExpReward;
@@ -60,6 +61,8 @@ bool g_bEnablePlugin;
 char g_sPrefix[32];
 int g_iMaxType;
 int g_iMaxTime;
+int g_iRequiredPlayer;
+int g_iPlayerInGame;
 
 #if defined LR_RANK
 int g_iExpReward;
@@ -76,7 +79,7 @@ public Plugin myinfo =
 	name = "[Shop] Defend Credits for Zombie:Reloaded", 
 	author = "Oylsister", 
 	description = "Give Credit to player after do damage to zombie for a while", 
-	version = "1.3", 
+	version = "1.4", 
 	url = "https://github.com/oylsister"
 }
 
@@ -90,6 +93,7 @@ public void OnPluginStart()
 	g_hCvarPrefix = CreateConVar("sm_shop_defendcredit_prefix", "{green}[Defend]", "What prefix you would like to use?");
 	g_hCvarMaxType = CreateConVar("sm_shop_defendcredit_maxtype", "0.0", "Maximum type that you want [0 = Disabled, 1 = Round, 2 = Map]", _, true, 0.0, true, 2.0);
 	g_hCvarMaximum = CreateConVar("sm_shop_defendcredit_maximum", "5.0", "Maximum time that player will receive credits", _, true, 1.0, false);
+	g_hCvarRequirePlayer = CreateConVar("sm_shop_defendcredit_player", "10", "How many player are required to active this feature.", _, true, 0.0, true, 64.0);
 	
 	#if defined LR_RANK
 	g_hCvarExpReward = CreateConVar("sm_shop_defendcredit_exp", "10", "How many EXP point that player will received after reach specific damage", _, true, 0.0, false);
@@ -105,6 +109,9 @@ public void OnPluginStart()
 	HookConVarChange(g_hCvarEnabled, OnConVarChange);
 	HookConVarChange(g_hCvarRequireDamage, OnConVarChange);
 	HookConVarChange(g_hCvarPrefix, OnConVarChange);
+	HookConVarChange(g_hCvarMaxType, OnConVarChange);
+	HookConVarChange(g_hCvarMaximum, OnConVarChange);
+	HookConVarChange(g_hCvarRequirePlayer, OnConVarChange);
 	
 	#if defined LR_RANK
 	HookConVarChange(g_hCvarExpReward, OnConVarChange);
@@ -121,6 +128,7 @@ public void OnMapStart()
 	GetConVarString(g_hCvarPrefix, g_sPrefix, sizeof(g_sPrefix));
 	g_iMaxType = GetConVarInt(g_hCvarMaxType);
 	g_iMaxTime = GetConVarInt(g_hCvarMaximum);
+	g_iRequiredPlayer = GetConVarInt(g_hCvarRequirePlayer);
 	
 	#if defined LR_RANK
 	g_iExpReward = GetConVarInt(g_hCvarExpReward);
@@ -169,6 +177,9 @@ public void OnConVarChange(Handle cvar, const char[] oldValue, const char[] newV
 		
 	else if (cvar == g_hCvarMaximum)
 		g_iMaxTime = GetConVarInt(g_hCvarMaximum);
+		
+	else if (cvar == g_hCvarRequirePlayer)
+		g_iRequiredPlayer = GetConVarInt(g_hCvarRequirePlayer);
 	
 	#if defined LR_RANK
 	else if (cvar == g_hCvarExpReward)
@@ -178,42 +189,45 @@ public void OnConVarChange(Handle cvar, const char[] oldValue, const char[] newV
 
 public Action Command_CheckStatus(int client, int args)
 {
-	if(!client)
+	if(g_bTempDisabled || !g_bEnablePlugin)
 	{
+		CReplyToCommand(client, "%s{default} {orange}This feature currently is disabled!", g_sPrefix);
 		return Plugin_Handled;
 	}
-	
-	if(g_iMaxType == UNLIMITED)
+	else
 	{
-		CReplyToCommand(client, "%s{default} {orange}The current settings has no limited.", g_sPrefix);
-		return Plugin_Handled;
-	}
-	
-	if(g_iMaxType == PER_ROUND)
-	{
-		if(g_iClientTime[client] > g_iMaxTime)
+		if(g_iMaxType == UNLIMITED)
 		{
-			CReplyToCommand(client, "%s{default} You can earn more {lightgreen}%d times {default}in this round.", g_sPrefix, g_iMaxTime - g_iClientTime[client]);
+			CReplyToCommand(client, "%s{default} {orange}The current settings has no limited.", g_sPrefix);
 			return Plugin_Handled;
 		}
-		else
-		{
-			CReplyToCommand(client, "%s{default} {red}You are no longer allowed to earn defend credits in this round.", g_sPrefix);
-			return Plugin_Handled;
-		}
-	}
 	
-	if(g_iMaxType == PER_MAP)
-	{
-		if(g_iClientTime[client] > g_iMaxTime)
+		if(g_iMaxType == PER_ROUND)
 		{
-			CReplyToCommand(client, "%s{default} You can earn more {lightgreen}%d times {default}in this map.", g_sPrefix, g_iMaxTime - g_iClientTime[client]);
-			return Plugin_Handled;
+			if(g_iClientTime[client] > g_iMaxTime)
+			{
+				CReplyToCommand(client, "%s{default} You can earn more {lightgreen}%d times {default}in this round.", g_sPrefix, g_iMaxTime - g_iClientTime[client]);
+				return Plugin_Handled;
+			}
+			else
+			{
+				CReplyToCommand(client, "%s{default} {red}You are no longer allowed to earn defend credits in this round.", g_sPrefix);
+				return Plugin_Handled;
+			}
 		}
-		else
+	
+		if(g_iMaxType == PER_MAP)
 		{
-			CReplyToCommand(client, "%s{default} {red}You are no longer allowed to earn defend credits in this map.", g_sPrefix);
-			return Plugin_Handled;
+			if(g_iClientTime[client] > g_iMaxTime)
+			{
+				CReplyToCommand(client, "%s{default} You can earn more {lightgreen}%d times {default}in this map.", g_sPrefix, g_iMaxTime - g_iClientTime[client]);
+				return Plugin_Handled;
+			}
+			else
+			{
+				CReplyToCommand(client, "%s{default} {red}You are no longer allowed to earn defend credits in this map.", g_sPrefix);
+				return Plugin_Handled;
+			}
 		}
 	}
 	return Plugin_Handled;
@@ -239,11 +253,20 @@ public void OnRoundStart(Event event, const char[] name, bool dontBroadcast)
 				g_iClientCanEarn[i] = true;
 			}
 			
-			if(g_iMaxType > PER_MAP)
-				CPrintToChat(i, "%s{default} The current round is enabled {orange}Defending Credit Reward, {red}Damaging Zombie {default}for a while will reward you with {lightgreen}Credit", g_sPrefix);
+			if(g_iPlayerInGame < g_iRequiredPlayer)
+			{
+				CPrintToChat(i, "%s{default} You're required at least {lightgreen}%d{default} to enable Defending {orange}Credit Reward", g_sPrefix, g_iRequiredPlayer);
+				g_bTempDisabled = true;
+			}
 			
-			else if(g_iMaxType <= PER_MAP)
-				CPrintToChat(i, "%s{default} The current map is enabled {orange}Defending Credit Reward, {red}Damaging Zombie {default}for a while will reward you with {lightgreen}Credit", g_sPrefix);
+			else
+			{
+				if(g_iMaxType < PER_MAP)
+					CPrintToChat(i, "%s{default} The current round is enabled {orange}Defending Credit Reward, {red}Damaging Zombie {default}for a while will reward you with {lightgreen}Credit", g_sPrefix);
+			
+				else if(g_iMaxType >= PER_MAP)
+					CPrintToChat(i, "%s{default} The current map is enabled {orange}Defending Credit Reward, {red}Damaging Zombie {default}for a while will reward you with {lightgreen}Credit", g_sPrefix);
+			}
 		}
 	}
 }
@@ -386,9 +409,23 @@ public void ZR_OnClientInfected(int client, int attacker, bool motherInfect, boo
 public void OnClientConnected(int client)
 {
 	g_iClientDamage[client] = 0;
+	g_iPlayerInGame++;
+	
+	if(g_iPlayerInGame >= g_iRequiredPlayer)
+	{
+		CPrintToChatAll("%s{default} The current number of player is enough!, {orange}Defending Credit Reward {default}is now {lightgreen}eanbled!", g_sPrefix);
+		g_bTempDisabled = false;
+	}
 }
 
 public void OnClientDisconnect(int client)
 {
 	g_iClientDamage[client] = 0;
+	g_iPlayerInGame--;
+	
+	if(g_iPlayerInGame < g_iRequiredPlayer)
+	{
+		CPrintToChatAll("%s{default} The current number of player is enough!, {orange}Defending Credit Reward {default}is now {lightgreen}eanbled!", g_sPrefix);
+		g_bTempDisabled = true;
+	}
 }
